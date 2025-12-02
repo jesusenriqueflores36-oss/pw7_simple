@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PowderyVision7 – Mildiu Polvoso en Arveja y Tomate</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4CAF50">
+  <style>
+    body {
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: background-image 1s ease-in-out;
+    }
+    input[type="file"] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <audio id="successSound" src="https://assets.mixkit.co/sfx/preview/mixkit-bubble-pop-up-alert-notification-2357.mp3" preload="auto"></audio>
+
+  <div class="logos-row" style="background-color: rgba(255, 255, 255, 0.7); border-radius: 10px;">
+    <img src="https://agroconciencia.agrosavia.co/media/4finmqqk/unal.png" alt="UNAL">
+    <img src="https://agroconciencia.agrosavia.co/media/pwvhl3sj/fac-ciencias.png" alt="Facultad de Ciencias">
+  </div>
+
+  <div class="container-fluid">
+    <h1>PowderyVision7</h1>
+    <h2>Clasificador y segmentador de mildiu polvoso en arveja y tomate</h2>
+
+    {% if error_msg %}
+      <div class="card card-error">
+        ⚠️ {{ error_msg }}
+      </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" class="card card-upload">
+      <label for="fileInput" class="custom-file-label">
+        📁 Seleccionar archivo o abrir cámara
+      </label>
+      <input id="fileInput" type="file" name="image" accept="image/*" capture="environment" required>
+
+      <button type="button" class="secondary-button" onclick="pegarDesdePortapapeles()">
+        📋 Pegar imagen desde portapapeles / Paste image
+      </button>
+
+      <button type="submit" class="primary-button">
+        📷 Analizar imagen / Analyze image
+      </button>
+
+      <p class="help-text">
+        Puedes subir una foto o usar la cámara de tu celular. También puedes copiar una imagen y pegarla aquí.
+      </p>
+    </form>
+
+    <div class="card card-info">
+      <h3>ℹ️ Alcance del modelo</h3>
+      <p>
+        Los modelos están entrenados para hojas de arveja (<em>Pisum sativum</em>) var. Vizcaya y tomate.
+        El uso en otras especies puede producir errores. Usa estos resultados como apoyo y confirma con un agrónomo o fitopatólogo.
+      </p>
+    </div>
+
+    {% if ok %}
+      <div class="card card-result">
+        <h2>Resultado de la inferencia</h2>
+
+        <p><strong>Especie inferida:</strong> {{ crop_name_es }} ({{ species }})</p>
+        <p><strong>Estado sanitario:</strong>
+          {% if is_healthy %}
+            ✅ Hoja sana
+          {% else %}
+            🦠 Hoja con mildiu polvoso
+          {% endif %}
+        </p>
+        <p><strong>Clase YOLO:</strong> {{ cls_name }} ({{ (cls_conf*100)|round(2) }} %)</p>
+        <p><strong>Tiempo clasificación YOLO:</strong> {{ (cls_time_ms/1000)|round(3) }} s</p>
+
+        {% if seg_ok %}
+          <p><strong>Confianza detección de hoja (YOLO seg):</strong> {{ (leaf_conf*100)|round(2) }} %</p>
+          <p><strong>Tiempo segmentación hoja:</strong> {{ (seg_time_ms/1000)|round(3) }} s</p>
+          <p><strong>Severidad estimada de mildiu:</strong> {{ severidad_pct|round(2) }} % del área foliar</p>
+        {% endif %}
+      </div>
+
+      <div class="card card-images">
+        <div class="img-block">
+          <h3>🖼️ Imagen original</h3>
+          <img src="{{ orig_img_path }}" alt="Imagen original" class="result-img">
+        </div>
+
+        {% if crop_img_path %}
+        <div class="img-block">
+          <h3>🌿 Recorte de hoja detectada</h3>
+          <img src="{{ crop_img_path }}" alt="Crop hoja" class="result-img">
+        </div>
+        {% endif %}
+
+        {% if seg_vis_path %}
+        <div class="img-block">
+          <h3>🧩 Segmentación de lesiones</h3>
+          <img src="{{ seg_vis_path }}" alt="Segmentación de lesiones" class="result-img">
+        </div>
+        {% endif %}
+
+        {% if panel_img_path %}
+        <div class="img-block wide">
+          <h3>📊 Panel de procesamiento (CLAHE, entropía, ΔE, máscara…)</h3>
+          <img src="{{ panel_img_path }}" alt="Panel de segmentación" class="panel-img">
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="card card-decisions">
+        <h3>⚠️ Posibles decisiones de manejo</h3>
+        <p>
+          Estas recomendaciones son orientativas. Deben discutirse y validarse con un profesional con conocimiento local.
+        </p>
+
+        {% if is_healthy %}
+          <h4>🌱 Hoja sana</h4>
+          <ul>
+            <li>Mantener monitoreo periódico (1 vez por semana).</li>
+            <li>Rotación de cultivos con gramíneas y buena ventilación del cultivo.</li>
+            <li>Evitar excesos de nitrógeno en fertilización.</li>
+          </ul>
+        {% else %}
+          <h4>🍃 Hoja con mildiu polvoso</h4>
+          <p><strong>Severidad estimada:</strong> {{ severidad_pct|round(2) }} % del área foliar.</p>
+
+          {% if severidad_pct < 10 %}
+            <p>Nivel bajo de severidad. Se recomienda:</p>
+            <ul>
+              <li>Retirar hojas muy afectadas de forma manual.</li>
+              <li>Uso de biofungicidas y manejo preventivo.</li>
+            </ul>
+          {% elif severidad_pct < 30 %}
+            <p>Nivel moderado de severidad. Se recomienda:</p>
+            <ul>
+              <li>Evaluar aplicaciones dirigidas de fungicidas protectantes.</li>
+              <li>Refuerzo de prácticas culturales (densidad de siembra, ventilación, riego).</li>
+            </ul>
+          {% else %}
+            <p>Nivel alto de severidad. Se recomienda:</p>
+            <ul>
+              <li>Evaluar con un especialista si se justifica el control químico intensivo o el
+                  reemplazo del lote más afectado.</li>
+              <li>Planear rotación de cultivo y manejo de residuos para próximos ciclos.</li>
+            </ul>
+          {% endif %}
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div id="help-button" onclick="mostrarAyuda()" title="Ayuda / Help">❓</div>
+
+  <script>
+    const imagenesFondo = [
+      'https://i.postimg.cc/sgmp0XJs/DJI-0246-scaled.jpg',
+      'https://i.postimg.cc/Nf49Qn2x/DJI-0225-scaled.jpg',
+      'https://i.postimg.cc/1z3sPptY/arvejas.jpg'
+    ];
+    let fondoActual = 0;
+    function rotarFondo() {
+      document.body.style.backgroundImage = `url('${imagenesFondo[fondoActual]}')`;
+      fondoActual = (fondoActual + 1) % imagenesFondo.length;
+    }
+    setInterval(rotarFondo, 8000);
+    window.onload = rotarFondo;
+
+    function mostrarAyuda() {
+      alert(
+        "📸 Sube o toma una foto de la hoja de arveja o tomate.\n\n" +
+        "🧠 Paso 1: YOLO clasifica especie y si está sana o con mildiu.\n" +
+        "🌿 Paso 2: Si hay mildiu, se segmentan las lesiones y se estima la severidad.\n\n" +
+        "⚠️ Usa estos resultados como apoyo a la decisión, no como diagnóstico definitivo."
+      );
+    }
+
+    async function pegarDesdePortapapeles() {
+      try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+            const blob = await item.getType(item.types[0]);
+            const fileInput = document.querySelector('input[type="file"][name="image"]');
+            const dataTransfer = new DataTransfer();
+            const file = new File([blob], "pasted-image.jpg", { type: blob.type });
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            alert("✅ Imagen pegada correctamente / Image pasted successfully.");
+            break;
+          }
+        }
+      } catch (err) {
+        alert("❌ No se pudo pegar la imagen. Usa Chrome o Edge. / Could not paste image. Use Chrome or Edge.");
+      }
+    }
+  </script>
+</body>
+</html>
