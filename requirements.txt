@@ -1,9 +1,8 @@
-cat > requirements.txt << 'EOF'
-flask
+Flask
+gunicorn
 ultralytics
 opencv-python
+numpy
+Pillow
 matplotlib
 scikit-image
-pillow
-gunicorn
-EOF
