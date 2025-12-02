@@ -1,3 +1,1 @@
-cat > runtime.txt << 'EOF'
 python-3.10.14
-EOF
