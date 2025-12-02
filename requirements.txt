@@ -1,0 +1,9 @@
+cat > requirements.txt << 'EOF'
+flask
+ultralytics
+opencv-python
+matplotlib
+scikit-image
+pillow
+gunicorn
+EOF
